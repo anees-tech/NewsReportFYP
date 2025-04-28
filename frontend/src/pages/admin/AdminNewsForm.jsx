@@ -1,14 +1,15 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { useParams, useNavigate } from "react-router-dom"
-import axios from "axios"
-import "./AdminPages.css"
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import "./AdminPages.css";
+import { dummyArticles } from "../../dummyData";
+import { localAdminArticles } from "./AdminDashboard";
 
 const AdminNewsForm = () => {
-  const { id } = useParams()
-  const navigate = useNavigate()
-  const isEditMode = !!id
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const isEditMode = !!id;
 
   const [formData, setFormData] = useState({
     title: "",
@@ -19,88 +20,95 @@ const AdminNewsForm = () => {
     author: "",
     imageUrl: "",
     isFeatured: false,
-  })
+  });
 
-  const [loading, setLoading] = useState(isEditMode)
-  const [error, setError] = useState(null)
-  const [saving, setSaving] = useState(false)
-  const [success, setSuccess] = useState(false)
+  const [loading, setLoading] = useState(isEditMode);
+  const [error, setError] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    // If in edit mode, fetch the article data
     if (isEditMode) {
-      const fetchArticle = async () => {
-        try {
-          const response = await axios.get(`http://localhost:5000/api/articles/${id}`)
-          const articleData = response.data
+      try {
+        const articleData = localAdminArticles.find((a) => a._id === id);
 
-          // Convert tags array to string for form input
-          const tagsString = Array.isArray(articleData.tags) ? articleData.tags.join(", ") : articleData.tags || ""
+        if (articleData) {
+          const tagsString = Array.isArray(articleData.tags) ? articleData.tags.join(", ") : articleData.tags || "";
 
           setFormData({
             ...articleData,
             tags: tagsString,
-          })
-          setLoading(false)
-        } catch (err) {
-          console.error("Error fetching article:", err)
-          setError("Failed to load article data. Please try again.")
-          setLoading(false)
+          });
+        } else {
+          setError("Dummy article not found for editing.");
         }
+        setLoading(false);
+      } catch (err) {
+        console.error("Error loading dummy article for edit:", err);
+        setError("Failed to load dummy article data.");
+        setLoading(false);
       }
-
-      fetchArticle()
+    } else {
+      setLoading(false);
     }
-  }, [id, isEditMode])
+  }, [id, isEditMode]);
 
   const handleChange = (e) => {
-    const { name, value, type, checked } = e.target
+    const { name, value, type, checked } = e.target;
     setFormData({
       ...formData,
       [name]: type === "checkbox" ? checked : value,
-    })
-  }
+    });
+  };
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    setError(null)
-    setSaving(true)
+    e.preventDefault();
+    setError(null);
+    setSaving(true);
+    setSuccess(false);
 
     try {
-      // Process tags: convert comma-separated string to array
-      const processedFormData = {
+      const processedTags = formData.tags
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter((tag) => tag);
+
+      const articleDataToSave = {
         ...formData,
-        tags: formData.tags
-          .split(",")
-          .map((tag) => tag.trim())
-          .filter((tag) => tag),
-      }
+        tags: processedTags,
+        updatedAt: new Date().toISOString(),
+      };
 
       if (isEditMode) {
-        // Update existing article
-        await axios.put(
-          `http://localhost:5000/api/articles/${id}  {
-        // Update existing article
-        await axios.put(\`http://localhost:5000/api/articles/${id}`,
-          processedFormData,
-        )
+        const index = localAdminArticles.findIndex((a) => a._id === id);
+        if (index !== -1) {
+          localAdminArticles[index] = { ...localAdminArticles[index], ...articleDataToSave };
+          console.log("Simulated update article:", localAdminArticles[index]);
+        } else {
+          throw new Error("Dummy article not found for update.");
+        }
       } else {
-        // Create new article
-        await axios.post("http://localhost:5000/api/articles", processedFormData)
+        const newArticle = {
+          ...articleDataToSave,
+          _id: `dummy-${Date.now()}`,
+          createdAt: new Date().toISOString(),
+          views: 0,
+        };
+        localAdminArticles.push(newArticle);
+        console.log("Simulated create article:", newArticle);
       }
 
-      setSuccess(true)
-      // Redirect after a short delay to show success message
+      setSuccess(true);
       setTimeout(() => {
-        navigate("/admin")
-      }, 1500)
+        navigate("/admin");
+      }, 1500);
     } catch (err) {
-      console.error("Error saving article:", err)
-      setError(err.response?.data?.message || "Failed to save article. Please try again.")
+      console.error("Error simulating save article:", err);
+      setError(err.message || "Failed to simulate saving article.");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   if (loading) {
     return (
@@ -108,7 +116,7 @@ const AdminNewsForm = () => {
         <div className="loader"></div>
         <p>Loading article data...</p>
       </div>
-    )
+    );
   }
 
   return (
@@ -116,7 +124,7 @@ const AdminNewsForm = () => {
       <h1 className="admin-title">{isEditMode ? "Edit Article" : "Create New Article"}</h1>
 
       {error && <div className="admin-error">{error}</div>}
-      {success && <div className="admin-success">Article saved successfully!</div>}
+      {success && <div className="admin-success">Article saved successfully (simulation)!</div>}
 
       <form onSubmit={handleSubmit} className="article-form">
         <div className="form-group">
@@ -248,7 +256,7 @@ const AdminNewsForm = () => {
         </div>
       </form>
     </div>
-  )
-}
+  );
+};
 
-export default AdminNewsForm
+export default AdminNewsForm;

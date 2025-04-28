@@ -1,75 +1,48 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { useParams } from "react-router-dom"
-import axios from "axios"
-import NewsGrid from "../components/NewsGrid"
-import "./CategoryPage.css"
+import { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
+import NewsGrid from "../components/NewsGrid";
+import "./CategoryPage.css";
+import { dummyArticles } from "../dummyData"; // Import dummy data
 
 const CategoryPage = () => {
-  const { category } = useParams()
-  const [articles, setArticles] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [page, setPage] = useState(1)
-  const [hasMore, setHasMore] = useState(true)
-
-  const articlesPerPage = 9
+  const { category } = useParams();
+  const [articles, setArticles] = useState([]);
+  const [loading, setLoading] = useState(false); // Set loading to false initially
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    // Reset state when category changes
-    setArticles([])
-    setLoading(true)
-    setError(null)
-    setPage(1)
-    setHasMore(true)
-
-    fetchArticles(1)
-  }, [category])
-
-  const fetchArticles = async (pageNum) => {
+    // Simulate fetching articles by category
     try {
-      setLoading(true)
-      const response = await axios.get(
-        `http://localhost:5000/api/articles/category/${category}?page=${pageNum}&limit=${articlesPerPage}`,
-      )
+      setLoading(true); // Optional
+      setError(null);
 
-      if (pageNum === 1) {
-        setArticles(response.data)
-      } else {
-        setArticles((prevArticles) => [...prevArticles, ...response.data])
-      }
+      const categoryArticles = dummyArticles.filter((a) => a.category === category.toLowerCase());
+      setArticles(categoryArticles);
 
-      // Check if we've reached the end
-      setHasMore(response.data.length === articlesPerPage)
-      setLoading(false)
+      setLoading(false);
     } catch (err) {
-      console.error(`Error fetching ${category} articles:`, err)
-      setError(`Failed to load ${category} articles. Please try again later.`)
-      setLoading(false)
+      console.error(`Error processing dummy ${category} articles:`, err);
+      setError(`Failed to load dummy ${category} articles.`);
+      setLoading(false);
     }
-  }
-
-  const loadMore = () => {
-    const nextPage = page + 1
-    setPage(nextPage)
-    fetchArticles(nextPage)
-  }
+  }, [category]); // Re-run when category changes
 
   const getCategoryTitle = () => {
-    return category.charAt(0).toUpperCase() + category.slice(1)
-  }
+    return category.charAt(0).toUpperCase() + category.slice(1);
+  };
 
   if (error) {
     return (
       <div className="error-container">
         <h2>Oops! Something went wrong</h2>
         <p>{error}</p>
-        <button onClick={() => fetchArticles(1)} className="btn btn-primary">
+        <button onClick={() => window.location.reload()} className="btn btn-primary">
           Try Again
         </button>
       </div>
-    )
+    );
   }
 
   return (
@@ -82,14 +55,6 @@ const CategoryPage = () => {
       {articles.length > 0 ? (
         <>
           <NewsGrid articles={articles} />
-
-          {hasMore && (
-            <div className="load-more-container">
-              <button onClick={loadMore} className="load-more-button" disabled={loading}>
-                {loading ? "Loading..." : "Load More"}
-              </button>
-            </div>
-          )}
         </>
       ) : loading ? (
         <div className="loading-container">
@@ -102,7 +67,7 @@ const CategoryPage = () => {
         </div>
       )}
     </div>
-  )
-}
+  );
+};
 
-export default CategoryPage
+export default CategoryPage;

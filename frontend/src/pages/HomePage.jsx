@@ -1,57 +1,52 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import axios from "axios"
-import HeroSection from "../components/HeroSection"
-import NewsGrid from "../components/NewsGrid"
-import "./HomePage.css"
+import { useState, useEffect } from "react";
+import HeroSection from "../components/HeroSection";
+import NewsGrid from "../components/NewsGrid";
+import "./HomePage.css";
+import { dummyArticles } from "../dummyData"; // Import dummy data
 
 const HomePage = () => {
-  const [featuredArticle, setFeaturedArticle] = useState(null)
-  const [latestArticles, setLatestArticles] = useState([])
-  const [popularArticles, setPopularArticles] = useState([])
-  const [categoryArticles, setCategoryArticles] = useState({})
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  // Initialize state with dummy data
+  const [featuredArticle, setFeaturedArticle] = useState(null);
+  const [latestArticles, setLatestArticles] = useState([]);
+  const [popularArticles, setPopularArticles] = useState([]);
+  const [categoryArticles, setCategoryArticles] = useState({});
+  const [loading, setLoading] = useState(false); // Set loading to false initially
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    const fetchHomePageData = async () => {
-      try {
-        // Fetch featured and latest articles
-        const [featuredRes, latestRes, popularRes] = await Promise.all([
-          axios.get("http://localhost:5000/api/articles/featured"),
-          axios.get("http://localhost:5000/api/articles/latest"),
-          axios.get("http://localhost:5000/api/articles/popular"),
-        ])
+    // Simulate data fetching with dummy data
+    try {
+      setLoading(true); // Optional: briefly show loading state
 
-        setFeaturedArticle(featuredRes.data)
-        setLatestArticles(latestRes.data)
-        setPopularArticles(popularRes.data)
+      // Find featured article (or use the first one)
+      const featured = dummyArticles.find((a) => a.isFeatured) || dummyArticles[0];
+      setFeaturedArticle(featured);
 
-        // Fetch articles by major categories
-        const categories = ["politics", "sports", "technology", "entertainment"]
-        const categoryPromises = categories.map((category) =>
-          axios.get(`http://localhost:5000/api/articles/category/${category}?limit=4`),
-        )
+      // Get latest articles (sort by date)
+      const latest = [...dummyArticles].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 6);
+      setLatestArticles(latest);
 
-        const categoryResults = await Promise.all(categoryPromises)
-        const categoryData = {}
+      // Get popular articles (sort by views)
+      const popular = [...dummyArticles].sort((a, b) => b.views - a.views).slice(0, 6);
+      setPopularArticles(popular);
 
-        categories.forEach((category, index) => {
-          categoryData[category] = categoryResults[index].data
-        })
+      // Get articles by category
+      const categories = ["politics", "sports", "technology", "entertainment", "business", "health", "science"];
+      const categoryData = {};
+      categories.forEach((category) => {
+        categoryData[category] = dummyArticles.filter((a) => a.category === category).slice(0, 4);
+      });
+      setCategoryArticles(categoryData);
 
-        setCategoryArticles(categoryData)
-        setLoading(false)
-      } catch (err) {
-        console.error("Error fetching homepage data:", err)
-        setError("Failed to load news content. Please try again later.")
-        setLoading(false)
-      }
+      setLoading(false);
+    } catch (err) {
+      console.error("Error processing dummy data:", err);
+      setError("Failed to load dummy news content.");
+      setLoading(false);
     }
-
-    fetchHomePageData()
-  }, [])
+  }, []); // Empty dependency array, runs once
 
   if (loading) {
     return (
@@ -59,7 +54,7 @@ const HomePage = () => {
         <div className="loader"></div>
         <p>Loading latest news...</p>
       </div>
-    )
+    );
   }
 
   if (error) {
@@ -69,7 +64,7 @@ const HomePage = () => {
         <p>{error}</p>
         <button onClick={() => window.location.reload()}>Try Again</button>
       </div>
-    )
+    );
   }
 
   return (
@@ -81,7 +76,8 @@ const HomePage = () => {
       <section className="section">
         <div className="section-header">
           <h2 className="section-title">Latest News</h2>
-          <a href="/category/latest" className="section-link">
+          {/* Link might need adjustment if you don't have a dedicated 'latest' category page */}
+          <a href="#" className="section-link">
             View All
           </a>
         </div>
@@ -92,7 +88,8 @@ const HomePage = () => {
       <section className="section">
         <div className="section-header">
           <h2 className="section-title">Popular News</h2>
-          <a href="/category/popular" className="section-link">
+           {/* Link might need adjustment if you don't have a dedicated 'popular' category page */}
+          <a href="#" className="section-link">
             View All
           </a>
         </div>
@@ -112,10 +109,10 @@ const HomePage = () => {
               </div>
               <NewsGrid articles={articles} />
             </section>
-          ),
+          )
       )}
     </div>
-  )
-}
+  );
+};
 
-export default HomePage
+export default HomePage;

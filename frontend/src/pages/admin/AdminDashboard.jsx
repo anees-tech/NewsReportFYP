@@ -1,75 +1,70 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Link } from "react-router-dom"
-import axios from "axios"
-import "./AdminPages.css"
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import "./AdminPages.css";
+import { dummyArticles, dummyStats } from "../../dummyData";
+
+export let localAdminArticles = [...dummyArticles];
 
 const AdminDashboard = () => {
-  const [articles, setArticles] = useState([])
+  const [articles, setArticles] = useState([]);
   const [stats, setStats] = useState({
     totalArticles: 0,
     totalViews: 0,
     totalComments: 0,
-  })
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [deleteId, setDeleteId] = useState(null)
-  const [showConfirmDelete, setShowConfirmDelete] = useState(false)
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [deleteId, setDeleteId] = useState(null);
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
 
   useEffect(() => {
-    fetchDashboardData()
-  }, [])
+    fetchDashboardData();
+  }, []);
 
   const fetchDashboardData = async () => {
     try {
-      setLoading(true)
-      const [articlesRes, statsRes] = await Promise.all([
-        axios.get("http://localhost:5000/api/admin/articles"),
-        axios.get("http://localhost:5000/api/admin/stats"),
-      ])
-
-      setArticles(articlesRes.data)
-      setStats(statsRes.data)
-      setLoading(false)
+      setLoading(true);
+      localAdminArticles.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      setArticles([...localAdminArticles]);
+      setStats(dummyStats);
+      setLoading(false);
     } catch (err) {
-      console.error("Error fetching dashboard data:", err)
-      setError("Failed to load dashboard data. Please try again.")
-      setLoading(false)
+      console.error("Error loading dummy dashboard data:", err);
+      setError("Failed to load dummy dashboard data.");
+      setLoading(false);
     }
-  }
+  };
 
   const handleDeleteClick = (id) => {
-    setDeleteId(id)
-    setShowConfirmDelete(true)
-  }
+    setDeleteId(id);
+    setShowConfirmDelete(true);
+  };
 
   const confirmDelete = async () => {
     try {
-      await axios.delete(`http://localhost:5000/api/articles/${deleteId}`)
-      // Update the articles list
-      setArticles(articles.filter((article) => article._id !== deleteId))
-      setShowConfirmDelete(false)
-      // Update stats
-      setStats({
-        ...stats,
-        totalArticles: stats.totalArticles - 1,
-      })
+      console.log(`Simulating delete for article ID: ${deleteId}`);
+      localAdminArticles = localAdminArticles.filter((article) => article._id !== deleteId);
+      setArticles([...localAdminArticles]);
+      setShowConfirmDelete(false);
+      setDeleteId(null);
+      setError(null);
     } catch (err) {
-      console.error("Error deleting article:", err)
-      setError("Failed to delete article. Please try again.")
+      console.error("Error simulating article deletion:", err);
+      setError("Failed to simulate article deletion.");
     }
-  }
+  };
 
   const cancelDelete = () => {
-    setShowConfirmDelete(false)
-    setDeleteId(null)
-  }
+    setShowConfirmDelete(false);
+    setDeleteId(null);
+  };
 
   const formatDate = (dateString) => {
-    const options = { year: "numeric", month: "short", day: "numeric" }
-    return new Date(dateString).toLocaleDateString(undefined, options)
-  }
+    const options = { year: "numeric", month: "short", day: "numeric" };
+    return new Date(dateString).toLocaleDateString(undefined, options);
+  };
 
   if (loading) {
     return (
@@ -77,7 +72,7 @@ const AdminDashboard = () => {
         <div className="loader"></div>
         <p>Loading dashboard data...</p>
       </div>
-    )
+    );
   }
 
   if (error) {
@@ -89,14 +84,13 @@ const AdminDashboard = () => {
           Try Again
         </button>
       </div>
-    )
+    );
   }
 
   return (
     <div className="admin-dashboard">
       <h1 className="admin-title">Admin Dashboard</h1>
 
-      {/* Stats Overview */}
       <div className="admin-stats">
         <div className="stat-card">
           <div className="stat-value">{stats.totalArticles}</div>
@@ -112,7 +106,6 @@ const AdminDashboard = () => {
         </div>
       </div>
 
-      {/* Articles Management */}
       <div className="admin-section">
         <div className="section-header">
           <h2>Articles Management</h2>
@@ -166,12 +159,11 @@ const AdminDashboard = () => {
         </div>
       </div>
 
-      {/* Delete Confirmation Modal */}
       {showConfirmDelete && (
         <div className="modal-overlay">
           <div className="delete-modal">
             <h3>Confirm Delete</h3>
-            <p>Are you sure you want to delete this article? This action cannot be undone.</p>
+            <p>Are you sure you want to delete this article? This action cannot be undone (simulation).</p>
             <div className="modal-actions">
               <button onClick={cancelDelete} className="btn-cancel">
                 Cancel
@@ -184,7 +176,7 @@ const AdminDashboard = () => {
         </div>
       )}
     </div>
-  )
-}
+  );
+};
 
-export default AdminDashboard
+export default AdminDashboard;
