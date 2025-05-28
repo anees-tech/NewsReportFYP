@@ -33,12 +33,22 @@ app.use("/api/comments", commentRoutes)
 app.use("/api/search", searchRoutes)
 app.use("/api/admin", adminRoutes)
 
-// Static files (future implementation)
-app.use("/uploads", express.static(path.join(__dirname, "uploads")))
+// Static files for uploads
+app.use("/uploads/images", express.static(path.join(__dirname, "uploads", "images")))
+app.use("/uploads/videos", express.static(path.join(__dirname, "uploads", "videos")))
 
-// Default route
-app.get("/", (req, res) => {
-  res.send("News Stream API is running!")
+// If in production, serve frontend static files
+if (process.env.NODE_ENV === "production") {
+  app.use(express.static(path.join(__dirname, "../frontend/dist")))
+
+  app.get("*", (req, res) => {
+    res.sendFile(path.join(__dirname, "../frontend/dist", "index.html"))
+  })
+}
+
+// Default API route
+app.get("/api", (req, res) => {
+  res.json({ message: "News Stream API is running!" })
 })
 
 // Error handling middleware
@@ -52,7 +62,7 @@ app.use((err, req, res, next) => {
 
 // Connect to MongoDB and start server
 mongoose
-  .connect(process.env.MONGODB_URI || "mongodb://localhost:27017/news-stream")
+  .connect(process.env.MONGODB_URI)
   .then(() => {
     app.listen(PORT, () => {
       console.log(`Server running on port: ${PORT}`)

@@ -1,29 +1,34 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import "./CommentSection.css";
-import { dummyComments } from "../dummyData";
-
-let localDummyComments = [...dummyComments];
+import { getCommentsByArticleId, createComment, deleteComment } from "../api";
 
 const CommentSection = ({ articleId, user }) => {
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    fetchComments();
+  }, [articleId]);
+
+  const fetchComments = async () => {
     try {
       setLoading(true);
-      const articleComments = localDummyComments.filter((c) => c.articleId === articleId);
-      setComments(articleComments);
-      setLoading(false);
+      const response = await getCommentsByArticleId(articleId);
+      setComments(response.data);
+      setError(null);
     } catch (err) {
-      console.error("Error loading dummy comments:", err);
-      setError("Failed to load dummy comments");
+      console.error("Error loading comments:", err);
+      setError("Failed to load comments");
+    } finally {
       setLoading(false);
     }
-  }, [articleId]);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -35,34 +40,53 @@ const CommentSection = ({ articleId, user }) => {
 
     if (!newComment.trim()) return;
 
+    setSubmitting(true);
+
     try {
-      const commentToAdd = {
-        _id: `temp-${Date.now()}`,
+      // Make sure authorName is included to satisfy the backend validation
+      const commentData = {
         articleId,
         content: newComment,
         author: user._id,
-        authorName: user.username,
-        createdAt: new Date().toISOString(),
+        authorName: user.username || user.name || "Anonymous", // Provide fallback
       };
 
-      localDummyComments.push(commentToAdd);
-      setComments([...comments, commentToAdd]);
+      const response = await createComment(commentData);
+      setComments([...comments, response.data]);
       setNewComment("");
-      console.log("Simulated posting comment:", commentToAdd);
       setError(null);
     } catch (err) {
-      console.error("Error simulating comment post:", err);
-      setError("Failed to post dummy comment");
+      console.error("Error posting comment:", err);
+      setError("Failed to post comment. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteComment = async (commentId) => {
+    if (!confirm("Are you sure you want to delete this comment?")) return;
+
+    try {
+      await deleteComment(commentId);
+      setComments(comments.filter((c) => c._id !== commentId));
+    } catch (err) {
+      console.error("Error deleting comment:", err);
+      alert("Failed to delete comment");
     }
   };
 
   const formatDate = (dateString) => {
-    const options = { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" };
+    const options = {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    };
     return new Date(dateString).toLocaleDateString(undefined, options);
   };
 
   if (loading) return <div className="comment-loading">Loading comments...</div>;
-  if (error) return <div className="comment-error">{error}</div>;
 
   return (
     <div className="comment-section">
@@ -76,16 +100,19 @@ const CommentSection = ({ articleId, user }) => {
             placeholder="Add a comment..."
             rows="4"
             required
+            disabled={submitting}
           ></textarea>
-          <button type="submit" className="comment-submit">
-            Post Comment
+          <button type="submit" className="comment-submit" disabled={submitting}>
+            {submitting ? "Posting..." : "Post Comment"}
           </button>
         </form>
       ) : (
         <div className="comment-login-message">
-          Please <a href="/login">log in</a> to leave a comment
+          Please <Link to="/login">log in</Link> to leave a comment
         </div>
       )}
+
+      {error && <div className="comment-error">{error}</div>}
 
       <div className="comment-list">
         {comments.length === 0 ? (
@@ -98,6 +125,15 @@ const CommentSection = ({ articleId, user }) => {
                 <div className="comment-header">
                   <span className="comment-author">{comment.authorName}</span>
                   <span className="comment-date">{formatDate(comment.createdAt)}</span>
+                  {user && (user._id === comment.author || user.role === "admin") && (
+                    <button
+                      onClick={() => handleDeleteComment(comment._id)}
+                      className="comment-delete-btn"
+                      title="Delete comment"
+                    >
+                      ×
+                    </button>
+                  )}
                 </div>
                 <div className="comment-content">{comment.content}</div>
               </div>

@@ -4,49 +4,74 @@ import { useState, useEffect } from "react";
 import HeroSection from "../components/HeroSection";
 import NewsGrid from "../components/NewsGrid";
 import "./HomePage.css";
-import { dummyArticles } from "../dummyData"; // Import dummy data
+import { 
+  getFeaturedArticle, 
+  getLatestArticles, 
+  getPopularArticles, 
+  getArticlesByCategory 
+} from "../api";
 
 const HomePage = () => {
-  // Initialize state with dummy data
   const [featuredArticle, setFeaturedArticle] = useState(null);
   const [latestArticles, setLatestArticles] = useState([]);
   const [popularArticles, setPopularArticles] = useState([]);
   const [categoryArticles, setCategoryArticles] = useState({});
-  const [loading, setLoading] = useState(false); // Set loading to false initially
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  const categories = [
+    "politics", 
+    "sports", 
+    "technology", 
+    "entertainment", 
+    "business", 
+    "health", 
+    "science"
+  ];
 
   useEffect(() => {
-    // Simulate data fetching with dummy data
-    try {
-      setLoading(true); // Optional: briefly show loading state
+    const fetchHomeData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Fetch featured article
+        const featuredResponse = await getFeaturedArticle();
+        setFeaturedArticle(featuredResponse.data);
+        
+        // Fetch latest articles
+        const latestResponse = await getLatestArticles(6);
+        setLatestArticles(latestResponse.data);
+        
+        // Fetch popular articles
+        const popularResponse = await getPopularArticles(6);
+        setPopularArticles(popularResponse.data);
+        
+        // Fetch articles by category
+        const categoryData = {};
+        await Promise.all(
+          categories.map(async (category) => {
+            try {
+              const response = await getArticlesByCategory(category, 4);
+              categoryData[category] = response.data;
+            } catch (err) {
+              console.error(`Error fetching ${category} articles:`, err);
+              categoryData[category] = [];
+            }
+          })
+        );
+        
+        setCategoryArticles(categoryData);
+      } catch (err) {
+        console.error("Error fetching home data:", err);
+        setError("Failed to load news content. Please try again later.");
+      } finally {
+        setLoading(false);
+      }
+    };
 
-      // Find featured article (or use the first one)
-      const featured = dummyArticles.find((a) => a.isFeatured) || dummyArticles[0];
-      setFeaturedArticle(featured);
-
-      // Get latest articles (sort by date)
-      const latest = [...dummyArticles].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 6);
-      setLatestArticles(latest);
-
-      // Get popular articles (sort by views)
-      const popular = [...dummyArticles].sort((a, b) => b.views - a.views).slice(0, 6);
-      setPopularArticles(popular);
-
-      // Get articles by category
-      const categories = ["politics", "sports", "technology", "entertainment", "business", "health", "science"];
-      const categoryData = {};
-      categories.forEach((category) => {
-        categoryData[category] = dummyArticles.filter((a) => a.category === category).slice(0, 4);
-      });
-      setCategoryArticles(categoryData);
-
-      setLoading(false);
-    } catch (err) {
-      console.error("Error processing dummy data:", err);
-      setError("Failed to load dummy news content.");
-      setLoading(false);
-    }
-  }, []); // Empty dependency array, runs once
+    fetchHomeData();
+  }, []);
 
   if (loading) {
     return (
@@ -62,7 +87,9 @@ const HomePage = () => {
       <div className="error-container">
         <h2>Oops! Something went wrong</h2>
         <p>{error}</p>
-        <button onClick={() => window.location.reload()}>Try Again</button>
+        <button onClick={() => window.location.reload()} className="btn btn-primary">
+          Try Again
+        </button>
       </div>
     );
   }
@@ -70,31 +97,33 @@ const HomePage = () => {
   return (
     <div className="home-page">
       {/* Hero Section with Featured Article */}
-      <HeroSection featuredArticle={featuredArticle} />
+      {featuredArticle && <HeroSection featuredArticle={featuredArticle} />}
 
       {/* Latest News Section */}
-      <section className="section">
-        <div className="section-header">
-          <h2 className="section-title">Latest News</h2>
-          {/* Link might need adjustment if you don't have a dedicated 'latest' category page */}
-          <a href="#" className="section-link">
-            View All
-          </a>
-        </div>
-        <NewsGrid articles={latestArticles} />
-      </section>
+      {latestArticles.length > 0 && (
+        <section className="section">
+          <div className="section-header">
+            <h2 className="section-title">Latest News</h2>
+            <a href="/category/latest" className="section-link">
+              View All
+            </a>
+          </div>
+          <NewsGrid articles={latestArticles} />
+        </section>
+      )}
 
       {/* Popular News Section */}
-      <section className="section">
-        <div className="section-header">
-          <h2 className="section-title">Popular News</h2>
-           {/* Link might need adjustment if you don't have a dedicated 'popular' category page */}
-          <a href="#" className="section-link">
-            View All
-          </a>
-        </div>
-        <NewsGrid articles={popularArticles} />
-      </section>
+      {popularArticles.length > 0 && (
+        <section className="section">
+          <div className="section-header">
+            <h2 className="section-title">Popular News</h2>
+            <a href="/category/popular" className="section-link">
+              View All
+            </a>
+          </div>
+          <NewsGrid articles={popularArticles} />
+        </section>
+      )}
 
       {/* Category Sections */}
       {Object.entries(categoryArticles).map(

@@ -19,19 +19,47 @@ router.get("/articles", async (req, res) => {
 // Get dashboard stats
 router.get("/stats", async (req, res) => {
   try {
-    const totalArticles = await Article.countDocuments()
-
+    // Get all articles for admin view
+    const articles = await Article.find().sort({ createdAt: -1 });
+    
+    // Calculate statistics
+    const totalArticles = articles.length;
+    
     // Calculate total views
-    const viewsResult = await Article.aggregate([{ $group: { _id: null, totalViews: { $sum: "$views" } } }])
-    const totalViews = viewsResult.length > 0 ? viewsResult[0].totalViews : 0
-
+    let totalViews = 0;
+    articles.forEach(article => {
+      totalViews += article.views || 0;
+    });
+    
     // Get total comments
-    const totalComments = await Comment.countDocuments()
+    const totalComments = await Comment.countDocuments();
+    
+    // Group articles by category for potential chart display
+    const categoryCount = {};
+    articles.forEach(article => {
+      if (article.category) {
+        if (categoryCount[article.category]) {
+          categoryCount[article.category]++;
+        } else {
+          categoryCount[article.category] = 1;
+        }
+      }
+    });
+    
+    // Recent activity - latest articles and comments
+    const recentArticles = articles.slice(0, 5); // Get 5 most recent
+    const recentComments = await Comment.find().sort({ createdAt: -1 }).limit(5);
 
     res.status(200).json({
-      totalArticles,
-      totalViews,
-      totalComments,
+      articles,
+      stats: {
+        totalArticles,
+        totalViews,
+        totalComments,
+        categoryCount,
+        recentArticles,
+        recentComments
+      }
     })
   } catch (error) {
     console.error("Error getting admin stats:", error)

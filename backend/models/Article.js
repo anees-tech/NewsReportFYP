@@ -19,6 +19,14 @@ const articleSchema = new mongoose.Schema({
     type: String,
     trim: true,
   },
+  videoUrl: {
+    type: String,
+    trim: true,
+  },
+  hasVideo: {
+    type: Boolean,
+    default: false
+  },
   category: {
     type: String,
     required: true,

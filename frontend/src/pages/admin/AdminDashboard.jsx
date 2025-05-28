@@ -3,9 +3,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import "./AdminPages.css";
-import { dummyArticles, dummyStats } from "../../dummyData";
-
-export let localAdminArticles = [...dummyArticles];
+import { adminGetStats, deleteArticle } from "../../api";
 
 const AdminDashboard = () => {
   const [articles, setArticles] = useState([]);
@@ -14,10 +12,11 @@ const AdminDashboard = () => {
     totalViews: 0,
     totalComments: 0,
   });
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
@@ -26,13 +25,18 @@ const AdminDashboard = () => {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      localAdminArticles.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      setArticles([...localAdminArticles]);
-      setStats(dummyStats);
-      setLoading(false);
+
+      const response = await adminGetStats();
+      const { articles, stats: dashboardStats } = response.data;
+
+      setArticles(articles);
+      setStats(dashboardStats);
+
+      setError(null);
     } catch (err) {
-      console.error("Error loading dummy dashboard data:", err);
-      setError("Failed to load dummy dashboard data.");
+      console.error("Error loading dashboard data:", err);
+      setError("Failed to load dashboard data. Please check your connection and try again.");
+    } finally {
       setLoading(false);
     }
   };
@@ -43,16 +47,29 @@ const AdminDashboard = () => {
   };
 
   const confirmDelete = async () => {
+    if (!deleteId) return;
+
     try {
-      console.log(`Simulating delete for article ID: ${deleteId}`);
-      localAdminArticles = localAdminArticles.filter((article) => article._id !== deleteId);
-      setArticles([...localAdminArticles]);
+      setDeleting(true);
+      await deleteArticle(deleteId);
+
+      // Update articles list after successful delete
+      setArticles(articles.filter((article) => article._id !== deleteId));
+
+      // Update stats
+      setStats({
+        ...stats,
+        totalArticles: stats.totalArticles - 1,
+      });
+
       setShowConfirmDelete(false);
       setDeleteId(null);
       setError(null);
     } catch (err) {
-      console.error("Error simulating article deletion:", err);
-      setError("Failed to simulate article deletion.");
+      console.error("Error deleting article:", err);
+      setError("Failed to delete article. Please try again.");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -141,13 +158,17 @@ const AdminDashboard = () => {
                       </Link>
                     </td>
                     <td>{article.category}</td>
-                    <td>{article.views}</td>
+                    <td>{article.views || 0}</td>
                     <td>{formatDate(article.createdAt)}</td>
                     <td className="actions-cell">
                       <Link to={`/admin/edit/${article._id}`} className="btn-edit">
                         Edit
                       </Link>
-                      <button onClick={() => handleDeleteClick(article._id)} className="btn-delete">
+                      <button
+                        onClick={() => handleDeleteClick(article._id)}
+                        className="btn-delete"
+                        disabled={deleting}
+                      >
                         Delete
                       </button>
                     </td>
@@ -163,13 +184,13 @@ const AdminDashboard = () => {
         <div className="modal-overlay">
           <div className="delete-modal">
             <h3>Confirm Delete</h3>
-            <p>Are you sure you want to delete this article? This action cannot be undone (simulation).</p>
+            <p>Are you sure you want to delete this article? This action cannot be undone.</p>
             <div className="modal-actions">
-              <button onClick={cancelDelete} className="btn-cancel">
+              <button onClick={cancelDelete} className="btn-cancel" disabled={deleting}>
                 Cancel
               </button>
-              <button onClick={confirmDelete} className="btn-confirm">
-                Delete
+              <button onClick={confirmDelete} className="btn-confirm" disabled={deleting}>
+                {deleting ? "Deleting..." : "Delete"}
               </button>
             </div>
           </div>

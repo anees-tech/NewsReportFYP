@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import "./AdminPages.css";
-import { dummyArticles } from "../../dummyData";
-import { localAdminArticles } from "./AdminDashboard";
+import { getArticleById, createArticle, updateArticle } from "../../api";
+import axios from "axios";
 
 const AdminNewsForm = () => {
   const { id } = useParams();
@@ -19,6 +19,8 @@ const AdminNewsForm = () => {
     tags: "",
     author: "",
     imageUrl: "",
+    videoUrl: "",
+    hasVideo: false,
     isFeatured: false,
   });
 
@@ -26,32 +28,41 @@ const AdminNewsForm = () => {
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [videoFile, setVideoFile] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
   useEffect(() => {
     if (isEditMode) {
-      try {
-        const articleData = localAdminArticles.find((a) => a._id === id);
+      fetchArticleData();
+    }
+  }, [id]);
 
-        if (articleData) {
-          const tagsString = Array.isArray(articleData.tags) ? articleData.tags.join(", ") : articleData.tags || "";
+  const fetchArticleData = async () => {
+    try {
+      const response = await getArticleById(id);
+      const articleData = response.data;
+      
+      // Convert tags array to string for form input
+      const tagsString = Array.isArray(articleData.tags) 
+        ? articleData.tags.join(", ") 
+        : articleData.tags || "";
 
-          setFormData({
-            ...articleData,
-            tags: tagsString,
-          });
-        } else {
-          setError("Dummy article not found for editing.");
-        }
-        setLoading(false);
-      } catch (err) {
-        console.error("Error loading dummy article for edit:", err);
-        setError("Failed to load dummy article data.");
-        setLoading(false);
-      }
-    } else {
+      setFormData({
+        ...articleData,
+        tags: tagsString,
+      });
+      
+      setError(null);
+    } catch (err) {
+      console.error("Error loading article data:", err);
+      setError("Failed to load article data for editing.");
+    } finally {
       setLoading(false);
     }
-  }, [id, isEditMode]);
+  };
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -61,6 +72,40 @@ const AdminNewsForm = () => {
     });
   };
 
+  const handleVideoChange = (e) => {
+    if (e.target.files[0]) {
+      setVideoFile(e.target.files[0]);
+    }
+  };
+
+  const uploadVideo = async () => {
+    if (!videoFile) return null;
+    
+    try {
+      setUploadingVideo(true);
+      const formData = new FormData();
+      formData.append("video", videoFile);
+      
+      const response = await axios.post(`${API_URL}/articles/upload/video`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          setUploadProgress(percentCompleted);
+        },
+      });
+      
+      return response.data.videoUrl;
+    } catch (err) {
+      console.error("Error uploading video:", err);
+      throw new Error("Failed to upload video");
+    } finally {
+      setUploadingVideo(false);
+      setUploadProgress(0);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
@@ -68,34 +113,30 @@ const AdminNewsForm = () => {
     setSuccess(false);
 
     try {
+      // Process tags: convert comma-separated string to array
       const processedTags = formData.tags
         .split(",")
         .map((tag) => tag.trim())
         .filter((tag) => tag);
 
+      // Upload video if selected
+      let videoUrl = formData.videoUrl;
+      
+      if (videoFile) {
+        videoUrl = await uploadVideo();
+      }
+
       const articleDataToSave = {
         ...formData,
         tags: processedTags,
-        updatedAt: new Date().toISOString(),
+        videoUrl,
+        hasVideo: !!videoUrl,
       };
 
       if (isEditMode) {
-        const index = localAdminArticles.findIndex((a) => a._id === id);
-        if (index !== -1) {
-          localAdminArticles[index] = { ...localAdminArticles[index], ...articleDataToSave };
-          console.log("Simulated update article:", localAdminArticles[index]);
-        } else {
-          throw new Error("Dummy article not found for update.");
-        }
+        await updateArticle(id, articleDataToSave);
       } else {
-        const newArticle = {
-          ...articleDataToSave,
-          _id: `dummy-${Date.now()}`,
-          createdAt: new Date().toISOString(),
-          views: 0,
-        };
-        localAdminArticles.push(newArticle);
-        console.log("Simulated create article:", newArticle);
+        await createArticle(articleDataToSave);
       }
 
       setSuccess(true);
@@ -103,8 +144,8 @@ const AdminNewsForm = () => {
         navigate("/admin");
       }, 1500);
     } catch (err) {
-      console.error("Error simulating save article:", err);
-      setError(err.message || "Failed to simulate saving article.");
+      console.error("Error saving article:", err);
+      setError(err.response?.data?.message || "Failed to save article. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -124,7 +165,7 @@ const AdminNewsForm = () => {
       <h1 className="admin-title">{isEditMode ? "Edit Article" : "Create New Article"}</h1>
 
       {error && <div className="admin-error">{error}</div>}
-      {success && <div className="admin-success">Article saved successfully (simulation)!</div>}
+      {success && <div className="admin-success">Article saved successfully!</div>}
 
       <form onSubmit={handleSubmit} className="article-form">
         <div className="form-group">
@@ -192,6 +233,7 @@ const AdminNewsForm = () => {
           </div>
         </div>
 
+        {/* Image URL input only */}
         <div className="form-group">
           <label htmlFor="imageUrl">Image URL</label>
           <input
@@ -203,6 +245,55 @@ const AdminNewsForm = () => {
             className="form-control"
             placeholder="URL for the article's image"
           />
+          {formData.imageUrl && (
+            <div className="image-preview">
+              <img 
+                src={formData.imageUrl} 
+                alt="Image preview"
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = "/placeholder.jpg";
+                }}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Video file upload only */}
+        <div className="form-group">
+          <label htmlFor="videoFile">Upload Video</label>
+          <div className="file-upload-container">
+            <input
+              type="file"
+              id="videoFile"
+              accept="video/*"
+              onChange={handleVideoChange}
+              className="form-control"
+            />
+            {uploadingVideo && (
+              <div className="upload-progress">
+                <div className="progress-bar" style={{ width: `${uploadProgress}%` }}></div>
+                <span>{uploadProgress}%</span>
+              </div>
+            )}
+          </div>
+          
+          {videoFile && (
+            <div className="video-preview">
+              <video controls width="100%">
+                <source src={URL.createObjectURL(videoFile)} />
+                Your browser does not support the video tag.
+              </video>
+            </div>
+          )}
+          {formData.videoUrl && !videoFile && (
+            <div className="video-preview">
+              <video controls width="100%">
+                <source src={formData.videoUrl} />
+                Your browser does not support the video tag.
+              </video>
+            </div>
+          )}
         </div>
 
         <div className="form-group">
@@ -247,10 +338,19 @@ const AdminNewsForm = () => {
         </div>
 
         <div className="form-actions">
-          <button type="button" onClick={() => navigate("/admin")} className="btn-cancel">
+          <button 
+            type="button" 
+            onClick={() => navigate("/admin")} 
+            className="btn-cancel" 
+            disabled={saving || uploadingVideo}
+          >
             Cancel
           </button>
-          <button type="submit" className="btn-save" disabled={saving}>
+          <button 
+            type="submit" 
+            className="btn-save" 
+            disabled={saving || uploadingVideo}
+          >
             {saving ? "Saving..." : "Save Article"}
           </button>
         </div>

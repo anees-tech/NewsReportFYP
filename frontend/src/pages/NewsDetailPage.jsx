@@ -4,41 +4,63 @@ import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import CommentSection from "../components/CommentSection";
 import "./NewsDetailPage.css";
-import { dummyArticles, dummyComments } from "../dummyData";
+import { getArticleById, getArticlesByCategory, incrementArticleView } from "../api";
 
 const NewsDetailPage = ({ user }) => {
   const { id } = useParams();
   const [article, setArticle] = useState(null);
   const [relatedArticles, setRelatedArticles] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    try {
-      setLoading(true);
-
-      const foundArticle = dummyArticles.find((a) => a._id === id);
-
-      if (foundArticle) {
-        setArticle(foundArticle);
-
-        const related = dummyArticles
-          .filter((a) => a.category === foundArticle.category && a._id !== id)
-          .slice(0, 3);
-        setRelatedArticles(related);
-
-        console.log(`Simulating view increment for article ${id}`);
-      } else {
-        setError("Dummy article not found.");
+    const fetchArticleData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch article data
+        const response = await getArticleById(id);
+        const articleData = response.data;
+        setArticle(articleData);
+        
+        // Increment view count
+        try {
+          await incrementArticleView(id);
+        } catch (viewErr) {
+          console.error("Error incrementing view count:", viewErr);
+          // Non-critical error, don't set main error state
+        }
+        
+        // Fetch related articles from same category
+        if (articleData.category) {
+          try {
+            const relatedResponse = await getArticlesByCategory(articleData.category, 3);
+            
+            // Handle both array response and object containing articles array
+            const relatedArticles = Array.isArray(relatedResponse.data) 
+              ? relatedResponse.data 
+              : relatedResponse.data.articles || [];
+            
+            // Filter out current article
+            const related = relatedArticles.filter(a => a._id !== id);
+            setRelatedArticles(related.slice(0, 3)); // Limit to 3 articles
+          } catch (relatedErr) {
+            console.error("Error fetching related articles:", relatedErr);
+            // Non-critical error, don't fail the whole page load
+            setRelatedArticles([]);
+          }
+        }
+        
+        setError(null);
+      } catch (err) {
+        console.error("Error fetching article:", err);
+        setError(err.response?.data?.message || "Failed to load the article.");
+      } finally {
+        setLoading(false);
       }
+    };
 
-      setLoading(false);
-    } catch (err) {
-      console.error("Error processing dummy article data:", err);
-      setError("Failed to load the dummy article.");
-      setLoading(false);
-    }
-
+    fetchArticleData();
     window.scrollTo(0, 0);
   }, [id]);
 
@@ -92,13 +114,26 @@ const NewsDetailPage = ({ user }) => {
           <div className="article-author">By {article.author}</div>
         </div>
 
-        <div className="article-featured-image">
-          <img
-            src={article.imageUrl || "/placeholder.jpg"}
-            alt={article.title}
-            onError={handleImageError}
-          />
-        </div>
+        {/* Display video if available */}
+        {article.hasVideo && article.videoUrl && (
+          <div className="article-featured-video">
+            <video controls width="100%">
+              <source src={`http://localhost:5000${article.videoUrl}`} type="video/mp4" />
+              Your browser does not support the video tag.
+            </video>
+          </div>
+        )}
+
+        {/* Display image if no video or if both are available */}
+        {(!article.hasVideo || (article.hasVideo && article.imageUrl)) && (
+          <div className="article-featured-image">
+            <img
+              src={`http://localhost:5000/${article.videoUrl}` || "/placeholder.jpg"}
+              alt={article.title}
+              onError={handleImageError}
+            />
+          </div>
+        )}
 
         <div className="article-content">
           {article.content && typeof article.content === "string"
@@ -120,9 +155,24 @@ const NewsDetailPage = ({ user }) => {
         <div className="article-share">
           <span>Share this article:</span>
           <div className="share-buttons">
-            <button className="share-button facebook" onClick={() => alert("Dummy Share: Facebook")}>Facebook</button>
-            <button className="share-button twitter" onClick={() => alert("Dummy Share: Twitter")}>Twitter</button>
-            <button className="share-button linkedin" onClick={() => alert("Dummy Share: LinkedIn")}>LinkedIn</button>
+            <button 
+              className="share-button facebook" 
+              onClick={() => window.open(`https://www.facebook.com/sharer/sharer.php?u=${window.location.href}`, '_blank')}
+            >
+              Facebook
+            </button>
+            <button 
+              className="share-button twitter" 
+              onClick={() => window.open(`https://twitter.com/intent/tweet?url=${window.location.href}&text=${article.title}`, '_blank')}
+            >
+              Twitter
+            </button>
+            <button 
+              className="share-button linkedin" 
+              onClick={() => window.open(`https://www.linkedin.com/shareArticle?mini=true&url=${window.location.href}&title=${article.title}`, '_blank')}
+            >
+              LinkedIn
+            </button>
           </div>
         </div>
 
@@ -160,7 +210,7 @@ const NewsDetailPage = ({ user }) => {
         <div className="newsletter-signup">
           <h3>Subscribe to Our Newsletter</h3>
           <p>Get the latest news delivered to your inbox</p>
-          <form className="newsletter-form" onSubmit={(e) => { e.preventDefault(); alert("Dummy Subscribe!"); }}>
+          <form className="newsletter-form" onSubmit={(e) => { e.preventDefault(); alert("Thank you for subscribing!"); }}>
             <input type="email" placeholder="Your email address" required />
             <button type="submit">Subscribe</button>
           </form>

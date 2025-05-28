@@ -1,38 +1,65 @@
 import axios from "axios"
 
-const API_URL = "http://localhost:5000/api"
+// Base URL from environment variable or default to localhost
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api"
 
-// Create a configured axios instance
+// Create axios instance with default config
 const api = axios.create({
   baseURL: API_URL,
   timeout: 10000,
 })
 
-// API functions for articles
-export const getArticles = () => api.get("/articles")
-export const getArticleById = (id) => api.get(`/articles/${id}`)
-export const getFeaturedArticle = () => api.get("/articles/featured")
-export const getLatestArticles = () => api.get("/articles/latest")
-export const getPopularArticles = () => api.get("/articles/popular")
-export const getArticlesByCategory = (category, limit) =>
-  api.get(`/articles/category/${category}${limit ? `?limit=${limit}` : ""}`)
+// Add request interceptor for authentication
+api.interceptors.request.use((config) => {
+  const user = JSON.parse(localStorage.getItem("user") || "{}")
+  if (user?.token) {
+    config.headers.Authorization = `Bearer ${user.token}`
+  }
+  return config
+})
 
-// API functions for comments
-export const getCommentsByArticleId = (articleId) => api.get(`/comments/${articleId}`)
-export const createComment = (comment) => api.post("/comments", comment)
+// Articles API
+export const getArticles = (page = 1, limit = 10) => 
+  api.get(`/articles?page=${page}&limit=${limit}`)
+export const getArticleById = (id) => 
+  api.get(`/articles/${id}`)
+export const getFeaturedArticle = () => 
+  api.get("/articles/featured")
+export const getLatestArticles = (limit = 6) => 
+  api.get(`/articles/latest?limit=${limit}`)
+export const getPopularArticles = (limit = 6) => 
+  api.get(`/articles/popular?limit=${limit}`)
+export const getArticlesByCategory = (category, limit = 10) =>
+  api.get(`/articles/category/${category}?limit=${limit}`)
+export const incrementArticleView = (id) => 
+  api.post(`/articles/${id}/view`)
 
-// API functions for auth
-export const login = (credentials) => api.post("/auth/login", credentials)
-export const register = (userData) => api.post("/auth/register", userData)
+// Comments API
+export const getCommentsByArticleId = (articleId) => 
+  api.get(`/comments/${articleId}`)
+export const createComment = (comment) => 
+  api.post("/comments", comment)
+export const deleteComment = (id) => 
+  api.delete(`/comments/${id}`)
 
-// API functions for search
-export const searchArticles = (query) => api.get(`/search?q=${query}`)
+// Auth API
+export const login = (credentials) => 
+  api.post("/auth/login", credentials)
+export const register = (userData) => 
+  api.post("/auth/register", userData)
 
-// API functions for admin
-export const adminGetArticles = () => api.get("/admin/articles")
-export const adminGetStats = () => api.get("/admin/stats")
-export const createArticle = (article) => api.post("/articles", article)
-export const updateArticle = (id, article) => api.put(`/articles/${id}`, article)
-export const deleteArticle = (id) => api.delete(`/articles/${id}`)
+// Search API
+export const searchArticles = (query, page = 1, limit = 10) => 
+  api.get(`/search?q=${query}&page=${page}&limit=${limit}`)
+
+// Admin API
+export const adminGetStats = () => 
+  api.get("/admin/stats")
+export const createArticle = (article) => 
+  api.post("/articles", article)
+export const updateArticle = (id, article) => 
+  api.put(`/articles/${id}`, article)
+export const deleteArticle = (id) => 
+  api.delete(`/articles/${id}`)
 
 export default api

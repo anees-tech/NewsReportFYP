@@ -352,6 +352,69 @@ textarea.form-control {
   }
 }
 
+.upload-progress {
+  margin-top: 10px;
+  background-color: #f0f0f0;
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+  height: 20px;
+}
+
+.progress-bar {
+  background-color: #3498db;
+  height: 100%;
+  color: white;
+  text-align: center;
+  transition: width 0.3s;
+}
+
+.upload-progress span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #333;
+  font-size: 12px;
+}
+
+.input-source-toggle {
+  display: flex;
+  margin-bottom: 10px;
+  gap: 20px;
+}
+
+.toggle-option {
+  display: flex;
+  align-items: center;
+  margin-right: 15px;
+}
+
+.toggle-option input[type="radio"] {
+  margin-right: 5px;
+}
+
+.file-upload-container {
+  margin-bottom: 10px;
+}
+
+.image-preview, .video-preview {
+  margin-top: 15px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 5px;
+  max-width: 300px;
+}
+
+.image-preview img {
+  width: 100%;
+  height: auto;
+}
+
+.video-preview {
+  max-width: 100%;
+}
+
 @media (max-width: 768px) {
   .admin-stats {
     flex-direction: column;

@@ -93,6 +93,26 @@
   text-decoration: underline;
 }
 
+.news-video-indicator {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+}
+
+.news-video-indicator:before {
+  content: "▶";
+  margin-right: 5px;
+  font-size: 10px;
+}
+
 @media (max-width: 600px) {
   .news-card-image {
     height: 180px;

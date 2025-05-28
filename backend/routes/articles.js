@@ -1,6 +1,8 @@
 import express from "express"
 import Article from "../models/Article.js"
 import Comment from "../models/Comment.js"
+import { uploadImage, uploadVideo } from "../middleware/upload.js"
+import path from "path"
 
 const router = express.Router()
 
@@ -14,7 +16,13 @@ router.get("/", async (req, res) => {
       .limit(limit * 1)
       .skip((page - 1) * limit)
 
-    res.status(200).json(articles)
+    const total = await Article.countDocuments()
+
+    res.status(200).json({
+      articles,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page * 1
+    })
   } catch (error) {
     console.error("Error getting articles:", error)
     res.status(500).json({ message: "Failed to fetch articles" })
@@ -29,8 +37,10 @@ router.get("/featured", async (req, res) => {
     if (!featuredArticle) {
       // If no featured article, return the latest article
       const latestArticle = await Article.findOne().sort({ createdAt: -1 })
-
-      return res.status(200).json(latestArticle)
+      if (latestArticle) {
+        return res.status(200).json(latestArticle)
+      }
+      return res.status(404).json({ message: "No articles found" })
     }
 
     res.status(200).json(featuredArticle)
@@ -71,22 +81,31 @@ router.get("/popular", async (req, res) => {
 // Get articles by category
 router.get("/category/:category", async (req, res) => {
   try {
-    const { category } = req.params
-    const { page = 1, limit = 9 } = req.query
+    const { category } = req.params;
+    const { page = 1, limit = 10 } = req.query;
 
-    const articles = await Article.find({ category: category.toLowerCase() })
+    // Find articles with matching category
+    const articles = await Article.find({ category })
       .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit));
 
-    res.status(200).json(articles)
+    // Count total articles for pagination info
+    const total = await Article.countDocuments({ category });
+
+    // Return consistent format with metadata
+    res.status(200).json({
+      articles: articles,
+      totalPages: Math.ceil(total / parseInt(limit)),
+      currentPage: parseInt(page)
+    });
   } catch (error) {
-    console.error(`Error getting ${req.params.category} articles:`, error)
-    res.status(500).json({ message: `Failed to fetch ${req.params.category} articles` })
+    console.error(`Error getting ${req.params.category} articles:`, error);
+    res.status(500).json({ message: `Failed to fetch ${req.params.category} articles` });
   }
 })
 
-// Get single article by ID
+// Get an article by ID
 router.get("/:id", async (req, res) => {
   try {
     const article = await Article.findById(req.params.id)
@@ -105,7 +124,14 @@ router.get("/:id", async (req, res) => {
 // Create a new article
 router.post("/", async (req, res) => {
   try {
-    const newArticle = new Article(req.body)
+    const newArticle = new Article({
+      ...req.body,
+      hasVideo: !!req.body.videoUrl, // Set hasVideo based on videoUrl presence
+      views: 0,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    })
+    
     await newArticle.save()
 
     res.status(201).json(newArticle)
@@ -118,9 +144,16 @@ router.post("/", async (req, res) => {
 // Update an article
 router.put("/:id", async (req, res) => {
   try {
+    // Update hasVideo field based on videoUrl presence
+    const updateData = {
+      ...req.body,
+      hasVideo: !!req.body.videoUrl,
+      updatedAt: Date.now()
+    }
+    
     const updatedArticle = await Article.findByIdAndUpdate(
       req.params.id,
-      { ...req.body, updatedAt: Date.now() },
+      updateData,
       { new: true },
     )
 
@@ -157,16 +190,49 @@ router.delete("/:id", async (req, res) => {
 // Increment view count
 router.post("/:id/view", async (req, res) => {
   try {
-    const article = await Article.findByIdAndUpdate(req.params.id, { $inc: { views: 1 } }, { new: true })
+    const article = await Article.findById(req.params.id)
 
     if (!article) {
       return res.status(404).json({ message: "Article not found" })
     }
 
-    res.status(200).json({ views: article.views })
+    article.views = (article.views || 0) + 1
+    await article.save()
+
+    res.status(200).json({ message: "View count incremented" })
   } catch (error) {
     console.error("Error incrementing view count:", error)
-    res.status(500).json({ message: "Failed to update view count" })
+    res.status(500).json({ message: "Failed to increment view count" })
+  }
+})
+
+// Upload video for an article
+router.post("/upload/video", uploadVideo.single("video"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No video file uploaded" })
+    }
+
+    const videoUrl = `/uploads/videos/${req.file.filename}`
+    res.status(200).json({ videoUrl })
+  } catch (error) {
+    console.error("Error uploading video:", error)
+    res.status(500).json({ message: "Failed to upload video" })
+  }
+})
+
+// Upload image for an article
+router.post("/upload/image", uploadImage.single("image"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No image file uploaded" })
+    }
+
+    const imageUrl = `/uploads/images/${req.file.filename}`
+    res.status(200).json({ imageUrl })
+  } catch (error) {
+    console.error("Error uploading image:", error)
+    res.status(500).json({ message: "Failed to upload image" })
   }
 })
 
